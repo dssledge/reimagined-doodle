@@ -1,0 +1,50 @@
+#Generate O365 OWA default signatures for one or all active accounts
+#Author: Dennis Sledge
+
+#User contact information can be updated in O365 in the 'Edit User' area. Changes will take a few minutes to update.
+
+#Create the connection to O365 Admin
+#When prompted you will provide your O365 credentials (username@thrusaircraft.com)
+$UserCredential = Get-Credential
+$Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $UserCredential -Authentication Basic -AllowRedirection
+Import-PSSession $Session
+ 
+
+ #The location of the html file used to format the signature
+ #All variables are to be wrapped in '%%' i.e. %%variable_name%%
+ $Signature = Get-Content "C:\Users\dennis.sledge\SharePoint\IT - Documents\Systems\Administration\IT\O365\Signatures\thrush_signature.txt"
+ $SignatureMobile = Get-Content "C:\Users\dennis.sledge\SharePoint\IT - Documents\Systems\Administration\IT\O365\Signatures\thrush_signature_mobile.txt"
+
+ #for testing you should provide a mailbox name without the domain, remove the name for all mailboxes
+ $mailboxes = Get-Mailbox
+
+ foreach ($mailbox in $mailboxes)
+ {
+ $user = Get-User $mailbox.name
+ #Display the applicable values
+ write-host($user.AccountDisabled , $user.DisplayName , $user.Title , $user.Phone , $user.mobilephone , $user.fax , $user.UserPrincipleName)
+
+ #Check if the account is disabled, update with signature file if active
+ if (! $user.AccountDisabled) {
+         #Update the mailbox signature
+         Set-MailboxMessageConfiguration -identity $mailbox.name -autoaddsignature $true `
+         -AutoAddSignatureOnReply $true -AutoAddSignatureOnMobile $true -UseDefaultSignatureOnMobile $false `
+         -SignatureHTML ($Signature `
+         -replace "%%displayname%%", $user.displayname `
+         -replace "%%title%%", $user.title `
+         -replace "%%PhoneNumber%%", $user.phone `
+         -replace "%%mobilephone%%", $user.mobilephone `
+         -replace "%%faxnumber%%", $user.fax `
+         -replace "%%email%%", $user.UserPrincipleName `
+         ) `
+         -SignatureTextOnMobile ($SignatureMobile `
+         -replace "%%displayname%%", $user.displayname `
+         -replace "%%title%%", $user.title
+         )
+             }
+              }
+              
+ #Get-MailboxMessageConfiguration rkoehler
+ Write-Host "Closing the O365 Session"
+ Remove-PSSession $Session
+ Write-Host "Script completed"
